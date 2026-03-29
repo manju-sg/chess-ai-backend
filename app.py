@@ -62,6 +62,14 @@ def get_move():
         logger.error(f"Engine Error: {str(e)}")
         return jsonify({"error": "Engine failed to calculate move"}), 500
 
+@app.route("/", methods=["GET"])
+def index():
+    return jsonify({
+        "service": "Chess AI Backend",
+        "engine": "Stockfish 16",
+        "status": "ready"
+    }), 200
+
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "healthy", "service": "chess-ai-engine"}), 200
