@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: chess-ai-engine
+    env: docker
+    plan: free
+    region: oregon # or your region
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: 10000
