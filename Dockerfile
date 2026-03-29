@@ -17,7 +17,7 @@ COPY . /app
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Define environment variables
-ENV STOCKFISH_PATH=stockfish
+ENV STOCKFISH_PATH=/usr/games/stockfish
 ENV PORT=5000
 
 # Make port 5000 available to the world outside this container
