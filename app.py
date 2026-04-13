@@ -23,34 +23,47 @@ def get_move():
         return jsonify({"error": "Missing FEN board state"}), 400
     
     fen = data["fen"]
-    logger.info(f"Processing FEN: {fen}")
+    # Allow client to specify time and depth for "Advanced" analysis
+    time_limit = float(data.get("time", 1.0))
+    depth_limit = int(data.get("depth", 20))
+    
+    logger.info(f"Processing FEN: {fen} (Time: {time_limit}s, Depth: {depth_limit})")
     
     try:
         board = chess.Board(fen)
         
-        # Check if the game is already over
         if board.is_game_over():
             return jsonify({"error": "Game is already over", "status": board.result()}), 400
 
-        # Start the Stockfish engine
         try:
             with chess.engine.SimpleEngine.popen_uci(STOCKFISH_PATH) as engine:
-                # Skill Level 20 is the maximum (approx. 3500+ Elo)
+                # Max skill level for Grandmaster play
                 engine.configure({"Skill Level": 20})
                 
-                # We use a 1.0s limit or depth 20 for "Impossible" mode
-                # This ensures the mobile user doesn't wait too long but gets a master-level move
-                limit = chess.engine.Limit(time=1.0, depth=20)
-                result = engine.play(board, limit)
+                # Use engine.analyse to get move + evaluation
+                limit = chess.engine.Limit(time=time_limit, depth=depth_limit)
+                info = engine.analyse(board, limit)
                 
-                best_move = result.move.uci()
-                logger.info(f"AI Move: {best_move}")
+                best_move = info.get("pv")[0].uci() if info.get("pv") else None
+                score = info.get("score").white() # Score from white's perspective
+                
+                # Format score for frontend (+1.5, -2.0, or M3)
+                score_val = 0
+                is_mate = False
+                if score.is_mate():
+                    score_val = score.mate()
+                    is_mate = True
+                else:
+                    score_val = score.score() / 100.0 # Convert centipawns to pawns
                 
                 return jsonify({
                     "bestMove": best_move,
-                    "info": {
-                        "depth": 20,
-                        "skill": 20
+                    "evaluation": {
+                        "score": score_val,
+                        "isMate": is_mate,
+                        "depth": info.get("depth"),
+                        "nodes": info.get("nodes"),
+                        "pv": [m.uci() for m in info.get("pv")[:5]] if info.get("pv") else []
                     }
                 })
         except FileNotFoundError:
@@ -60,7 +73,7 @@ def get_move():
         return jsonify({"error": "Invalid FEN board state"}), 400
     except Exception as e:
         logger.error(f"Engine Error: {str(e)}")
-        return jsonify({"error": "Engine failed to calculate move"}), 500
+        return jsonify({"error": f"Engine failed: {str(e)}"}), 500
 
 @app.route("/", methods=["GET"])
 def index():
